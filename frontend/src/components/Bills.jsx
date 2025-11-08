@@ -57,7 +57,8 @@ function Bills() {
       setEditableItems(response.data.items.map(item => ({
         product_name: item.product_name,
         amount: item.amount,
-        subcategory_id: item.suggested_subcategory_id || null
+        subcategory_id: item.suggested_subcategory_id || null,
+        category_id: item.suggested_subcategory_id ? getCategoryForSubcategory(item.suggested_subcategory_id) : null
       })));
       setShowManualModal(true);
       setShowUploadModal(false);
@@ -73,9 +74,13 @@ function Bills() {
     try {
       const total = editableItems.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
       await createBill({
-        items: editableItems,
+        items: editableItems.map(item => ({
+          product_name: item.product_name,
+          amount: item.amount,
+          subcategory_id: item.subcategory_id
+        })),
         total,
-        notes: 'Imported via OCR'
+        notes: ocrResult ? 'Imported via OCR' : 'Manually entered'
       });
       setSuccess('Bill saved successfully!');
       setShowManualModal(false);
@@ -105,9 +110,21 @@ function Bills() {
     }
   };
 
+  const openManualBillModal = () => {
+    setOcrResult(null);
+    setEditableItems([{ product_name: '', amount: 0, subcategory_id: null, category_id: null }]);
+    setShowManualModal(true);
+  };
+
   const updateItem = (index, field, value) => {
     const updated = [...editableItems];
     updated[index][field] = value;
+
+    // If category changes, reset subcategory
+    if (field === 'category_id') {
+      updated[index].subcategory_id = null;
+    }
+
     setEditableItems(updated);
   };
 
@@ -116,16 +133,25 @@ function Bills() {
   };
 
   const addItem = () => {
-    setEditableItems([...editableItems, { product_name: '', amount: 0, subcategory_id: null }]);
+    setEditableItems([...editableItems, { product_name: '', amount: 0, subcategory_id: null, category_id: null }]);
   };
 
-  // Flatten subcategories for dropdown
-  const allSubcategories = categories.flatMap(cat =>
-    cat.subcategories.map(sub => ({
-      id: sub.id,
-      name: `${cat.name} - ${sub.name}`
-    }))
-  );
+  // Get subcategories for a specific category
+  const getSubcategoriesForCategory = (categoryId) => {
+    if (!categoryId) return [];
+    const category = categories.find(cat => cat.id === parseInt(categoryId));
+    return category ? category.subcategories : [];
+  };
+
+  // Get category ID for a subcategory
+  const getCategoryForSubcategory = (subcategoryId) => {
+    if (!subcategoryId) return null;
+    for (const category of categories) {
+      const hasSubcat = category.subcategories.some(sub => sub.id === subcategoryId);
+      if (hasSubcat) return category.id;
+    }
+    return null;
+  };
 
   if (loading) {
     return <div className="loading">Loading bills...</div>;
@@ -135,9 +161,14 @@ function Bills() {
     <div className="container">
       <div className="flex-between" style={{ marginBottom: '2rem' }}>
         <h1 style={{ color: '#2c3e50' }}>Bills</h1>
-        <button className="btn btn-primary" onClick={() => setShowUploadModal(true)}>
-          Upload Bill (OCR)
-        </button>
+        <div className="flex" style={{ gap: '0.5rem' }}>
+          <button className="btn btn-success" onClick={openManualBillModal}>
+            Add Manual Bill
+          </button>
+          <button className="btn btn-primary" onClick={() => setShowUploadModal(true)}>
+            Upload Bill (OCR)
+          </button>
+        </div>
       </div>
 
       {error && <div className="error">{error}</div>}
@@ -266,42 +297,57 @@ function Bills() {
 
             <div style={{ marginBottom: '1rem' }}>
               <h3 style={{ marginBottom: '1rem' }}>Items</h3>
-              {editableItems.map((item, index) => (
-                <div key={index} className="bill-item">
-                  <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '2fr 1fr 2fr auto', gap: '0.5rem', alignItems: 'center' }}>
-                    <input
-                      type="text"
-                      value={item.product_name}
-                      onChange={(e) => updateItem(index, 'product_name', e.target.value)}
-                      placeholder="Product name"
-                    />
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={item.amount}
-                      onChange={(e) => updateItem(index, 'amount', e.target.value)}
-                      placeholder="Amount"
-                    />
-                    <select
-                      value={item.subcategory_id || ''}
-                      onChange={(e) => updateItem(index, 'subcategory_id', e.target.value ? parseInt(e.target.value) : null)}
-                    >
-                      <option value="">Uncategorized</option>
-                      {allSubcategories.map(sub => (
-                        <option key={sub.id} value={sub.id}>
-                          {sub.name}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      className="btn btn-danger"
-                      onClick={() => removeItem(index)}
-                    >
-                      Remove
-                    </button>
+              {editableItems.map((item, index) => {
+                const availableSubcategories = getSubcategoriesForCategory(item.category_id);
+                return (
+                  <div key={index} className="bill-item">
+                    <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '2fr 1fr 1.5fr 1.5fr auto', gap: '0.5rem', alignItems: 'center' }}>
+                      <input
+                        type="text"
+                        value={item.product_name}
+                        onChange={(e) => updateItem(index, 'product_name', e.target.value)}
+                        placeholder="Product name"
+                      />
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={item.amount}
+                        onChange={(e) => updateItem(index, 'amount', e.target.value)}
+                        placeholder="Amount"
+                      />
+                      <select
+                        value={item.category_id || ''}
+                        onChange={(e) => updateItem(index, 'category_id', e.target.value ? parseInt(e.target.value) : null)}
+                      >
+                        <option value="">Select Category</option>
+                        {categories.map(cat => (
+                          <option key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        value={item.subcategory_id || ''}
+                        onChange={(e) => updateItem(index, 'subcategory_id', e.target.value ? parseInt(e.target.value) : null)}
+                        disabled={!item.category_id}
+                      >
+                        <option value="">Select Subcategory</option>
+                        {availableSubcategories.map(sub => (
+                          <option key={sub.id} value={sub.id}>
+                            {sub.name}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        className="btn btn-danger"
+                        onClick={() => removeItem(index)}
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               <button className="btn btn-secondary" onClick={addItem} style={{ marginTop: '0.5rem' }}>
                 Add Item
               </button>
