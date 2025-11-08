@@ -248,3 +248,84 @@ def get_store_summary(
         "no_store": no_store_total,
         "total": sum(s["total"] for s in store_totals.values()) + no_store_total
     }
+
+
+@router.get("/stats/store-item-comparison")
+def get_store_item_comparison(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Get comparison of same items across different stores."""
+    query = db.query(models.BillItem).join(models.Bill)
+
+    # Apply date filters if provided
+    if start_date:
+        try:
+            start = datetime.fromisoformat(start_date)
+            query = query.filter(models.Bill.date >= start)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid start_date format")
+
+    if end_date:
+        try:
+            end = datetime.fromisoformat(end_date)
+            query = query.filter(models.Bill.date <= end)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid end_date format")
+
+    items = query.all()
+
+    # Group items by product name (case-insensitive)
+    product_groups = {}
+    for item in items:
+        # Normalize product name to lowercase for grouping
+        product_key = item.product_name.lower().strip()
+
+        if product_key not in product_groups:
+            product_groups[product_key] = {
+                "product_name": item.product_name,  # Use original case for display
+                "stores": []
+            }
+
+        # Add store information
+        store_name = item.bill.store_name if item.bill.store_name else "Unknown Store"
+        product_groups[product_key]["stores"].append({
+            "store_name": store_name,
+            "amount": item.amount
+        })
+
+    # Filter to only include products that appear in multiple stores
+    comparison_items = []
+    for product_key, data in product_groups.items():
+        # Group by store to find unique stores
+        stores_dict = {}
+        for store_info in data["stores"]:
+            store_name = store_info["store_name"]
+            if store_name not in stores_dict:
+                stores_dict[store_name] = []
+            stores_dict[store_name].append(store_info["amount"])
+
+        # Only include if item appears in 2 or more different stores
+        if len(stores_dict) >= 2:
+            # Calculate average price per store
+            stores_list = []
+            for store_name, amounts in stores_dict.items():
+                avg_amount = sum(amounts) / len(amounts)
+                stores_list.append({
+                    "store_name": store_name,
+                    "amount": avg_amount
+                })
+
+            comparison_items.append({
+                "product_name": data["product_name"],
+                "stores": stores_list
+            })
+
+    # Sort by product name
+    comparison_items.sort(key=lambda x: x["product_name"].lower())
+
+    return {
+        "items": comparison_items,
+        "total_products": len(comparison_items)
+    }
