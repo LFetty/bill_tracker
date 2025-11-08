@@ -18,10 +18,13 @@ source venv/bin/activate
 echo "Installing dependencies..."
 pip install -r requirements.txt
 
-# Check if database exists, if not initialize with sample data
+# Check if database exists
 if [ ! -f "bill_tracker.db" ]; then
     echo "Database not found. Initializing with sample data..."
     python init_sample_data.py
+else
+    echo "Running database migration (if needed)..."
+    python migrate_db.py
 fi
 
 # Start the server

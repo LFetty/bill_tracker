@@ -16,10 +16,13 @@ REM Install/update dependencies
 echo Installing dependencies...
 pip install -r requirements.txt
 
-REM Check if database exists, if not initialize with sample data
+REM Check if database exists
 if not exist "bill_tracker.db" (
     echo Database not found. Initializing with sample data...
     python init_sample_data.py
+) else (
+    echo Running database migration if needed...
+    python migrate_db.py
 )
 
 REM Start the server
