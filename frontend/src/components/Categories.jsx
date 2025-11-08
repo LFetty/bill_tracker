@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getCategories, createCategory, createSubcategory, updateSubcategory, deleteCategory, deleteSubcategory } from '../services/api';
+import { getCategories, createCategory, createSubcategory, updateSubcategory, deleteCategory, deleteSubcategory, createItem, deleteItem } from '../services/api';
 
 function Categories() {
   const [categories, setCategories] = useState([]);
@@ -7,6 +7,7 @@ function Categories() {
   const [error, setError] = useState(null);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showSubcategoryModal, setShowSubcategoryModal] = useState(false);
+  const [showItemModal, setShowItemModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState(null);
 
@@ -15,6 +16,12 @@ function Categories() {
     name: '',
     description: '',
     category_id: null,
+    keywords: ''
+  });
+  const [itemForm, setItemForm] = useState({
+    name: '',
+    description: '',
+    subcategory_id: null,
     keywords: ''
   });
 
@@ -104,6 +111,48 @@ function Categories() {
     setShowSubcategoryModal(true);
   };
 
+  const openItemModal = (subcategoryId) => {
+    setItemForm({ ...itemForm, subcategory_id: subcategoryId });
+    setShowItemModal(true);
+  };
+
+  const handleCreateItem = async (e) => {
+    e.preventDefault();
+    try {
+      const keywords = itemForm.keywords
+        .split(',')
+        .map(k => k.trim())
+        .filter(k => k.length > 0);
+
+      await createItem({
+        name: itemForm.name,
+        description: itemForm.description,
+        subcategory_id: itemForm.subcategory_id,
+        keywords
+      });
+
+      setItemForm({ name: '', description: '', subcategory_id: null, keywords: '' });
+      setShowItemModal(false);
+      fetchCategories();
+    } catch (err) {
+      setError('Failed to create item');
+      console.error(err);
+    }
+  };
+
+  const handleDeleteItem = async (id) => {
+    if (!confirm('Are you sure? This will unlink bill items from this item.')) {
+      return;
+    }
+    try {
+      await deleteItem(id);
+      fetchCategories();
+    } catch (err) {
+      setError('Failed to delete item');
+      console.error(err);
+    }
+  };
+
   if (loading) {
     return <div className="loading">Loading categories...</div>;
   }
@@ -163,23 +212,79 @@ function Categories() {
                             </p>
                           )}
                           {subcat.keywords && subcat.keywords.length > 0 && (
-                            <div className="keyword-tags">
+                            <div className="keyword-tags" style={{ marginTop: '0.5rem' }}>
+                              <small style={{ color: '#7f8c8d', marginRight: '0.5rem' }}>Subcategory keywords:</small>
                               {subcat.keywords.map((kw, idx) => (
-                                <span key={idx} className="keyword-tag">
+                                <span key={idx} className="keyword-tag" style={{ backgroundColor: '#e8f4f8' }}>
                                   {kw.keyword}
                                 </span>
                               ))}
                             </div>
                           )}
                         </div>
-                        <button
-                          className="btn btn-danger"
-                          style={{ marginLeft: '1rem' }}
-                          onClick={() => handleDeleteSubcategory(subcat.id)}
-                        >
-                          Delete
-                        </button>
+                        <div className="flex" style={{ gap: '0.5rem', marginLeft: '1rem' }}>
+                          <button
+                            className="btn btn-success"
+                            onClick={() => openItemModal(subcat.id)}
+                          >
+                            Add Item
+                          </button>
+                          <button
+                            className="btn btn-danger"
+                            onClick={() => handleDeleteSubcategory(subcat.id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
+
+                      {/* Display Items under Subcategory */}
+                      {subcat.items && subcat.items.length > 0 && (
+                        <div style={{ marginTop: '1rem', paddingLeft: '1.5rem' }}>
+                          <small style={{ color: '#7f8c8d', display: 'block', marginBottom: '0.5rem' }}>
+                            Items ({subcat.items.length}):
+                          </small>
+                          <ul style={{ listStyle: 'none', padding: 0 }}>
+                            {subcat.items.map((item) => (
+                              <li key={item.id} style={{
+                                marginBottom: '0.75rem',
+                                padding: '0.75rem',
+                                backgroundColor: '#f8f9fa',
+                                borderRadius: '4px',
+                                border: '1px solid #dee2e6'
+                              }}>
+                                <div className="flex-between">
+                                  <div style={{ flex: 1 }}>
+                                    <strong style={{ color: '#2ecc71' }}>{item.name}</strong>
+                                    {item.description && (
+                                      <p style={{ color: '#7f8c8d', fontSize: '0.85rem', marginTop: '0.25rem' }}>
+                                        {item.description}
+                                      </p>
+                                    )}
+                                    {item.keywords && item.keywords.length > 0 && (
+                                      <div className="keyword-tags" style={{ marginTop: '0.5rem' }}>
+                                        <small style={{ color: '#7f8c8d', marginRight: '0.5rem' }}>Store variants:</small>
+                                        {item.keywords.map((kw, idx) => (
+                                          <span key={idx} className="keyword-tag" style={{ backgroundColor: '#d4edda', color: '#155724' }}>
+                                            {kw.keyword}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <button
+                                    className="btn btn-danger"
+                                    style={{ marginLeft: '1rem', fontSize: '0.85rem', padding: '0.25rem 0.75rem' }}
+                                    onClick={() => handleDeleteItem(item.id)}
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -272,6 +377,64 @@ function Categories() {
               </div>
               <div className="flex" style={{ justifyContent: 'flex-end' }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setShowSubcategoryModal(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  Create
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Item Modal */}
+      {showItemModal && (
+        <div className="modal-overlay" onClick={() => setShowItemModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Add Item</h2>
+              <button className="close-btn" onClick={() => setShowItemModal(false)}>
+                &times;
+              </button>
+            </div>
+            <form onSubmit={handleCreateItem}>
+              <div className="form-group">
+                <label>Common Name *</label>
+                <input
+                  type="text"
+                  value={itemForm.name}
+                  onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })}
+                  placeholder="e.g., Milk, Bananas, Rice"
+                  required
+                />
+                <small style={{ color: '#7f8c8d', display: 'block', marginTop: '0.25rem' }}>
+                  The standard name for this product (e.g., "Milk" instead of "COW32")
+                </small>
+              </div>
+              <div className="form-group">
+                <label>Description</label>
+                <textarea
+                  value={itemForm.description}
+                  onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })}
+                  rows="2"
+                  placeholder="Optional description"
+                />
+              </div>
+              <div className="form-group">
+                <label>Store-Specific Names (comma-separated)</label>
+                <input
+                  type="text"
+                  value={itemForm.keywords}
+                  onChange={(e) => setItemForm({ ...itemForm, keywords: e.target.value })}
+                  placeholder="e.g., COW32, Whole Milk, 2% Milk"
+                />
+                <small style={{ color: '#7f8c8d', display: 'block', marginTop: '0.25rem' }}>
+                  Different names this product appears as on receipts. These will be used to automatically map store-specific names to this item.
+                </small>
+              </div>
+              <div className="flex" style={{ justifyContent: 'flex-end' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowItemModal(false)}>
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-primary">

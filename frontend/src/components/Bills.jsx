@@ -60,7 +60,8 @@ function Bills() {
         product_name: item.product_name,
         amount: item.amount,
         subcategory_id: item.suggested_subcategory_id || null,
-        category_id: item.suggested_subcategory_id ? getCategoryForSubcategory(item.suggested_subcategory_id) : null
+        category_id: item.suggested_subcategory_id ? getCategoryForSubcategory(item.suggested_subcategory_id) : null,
+        item_id: item.suggested_item_id || null
       })));
       setShowManualModal(true);
       setShowUploadModal(false);
@@ -79,7 +80,8 @@ function Bills() {
         items: editableItems.map(item => ({
           product_name: item.product_name,
           amount: item.amount,
-          subcategory_id: item.subcategory_id
+          subcategory_id: item.subcategory_id,
+          item_id: item.item_id
         })),
         total,
         store_name: storeName || null,
@@ -117,7 +119,7 @@ function Bills() {
   const openManualBillModal = () => {
     setOcrResult(null);
     setStoreName('');
-    setEditableItems([{ product_name: '', amount: 0, subcategory_id: null, category_id: null }]);
+    setEditableItems([{ product_name: '', amount: 0, subcategory_id: null, category_id: null, item_id: null }]);
     setShowManualModal(true);
   };
 
@@ -125,9 +127,15 @@ function Bills() {
     const updated = [...editableItems];
     updated[index][field] = value;
 
-    // If category changes, reset subcategory
+    // If category changes, reset subcategory and item
     if (field === 'category_id') {
       updated[index].subcategory_id = null;
+      updated[index].item_id = null;
+    }
+
+    // If subcategory changes, reset item
+    if (field === 'subcategory_id') {
+      updated[index].item_id = null;
     }
 
     setEditableItems(updated);
@@ -138,7 +146,7 @@ function Bills() {
   };
 
   const addItem = () => {
-    setEditableItems([...editableItems, { product_name: '', amount: 0, subcategory_id: null, category_id: null }]);
+    setEditableItems([...editableItems, { product_name: '', amount: 0, subcategory_id: null, category_id: null, item_id: null }]);
   };
 
   // Get subcategories for a specific category
@@ -156,6 +164,18 @@ function Bills() {
       if (hasSubcat) return category.id;
     }
     return null;
+  };
+
+  // Get items for a specific subcategory
+  const getItemsForSubcategory = (subcategoryId) => {
+    if (!subcategoryId) return [];
+    for (const category of categories) {
+      const subcategory = category.subcategories.find(sub => sub.id === parseInt(subcategoryId));
+      if (subcategory) {
+        return subcategory.items || [];
+      }
+    }
+    return [];
   };
 
   if (loading) {
@@ -208,7 +228,13 @@ function Bills() {
                       <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
                         {bill.items.map((item, idx) => (
                           <li key={idx} style={{ marginBottom: '0.25rem' }}>
-                            {item.product_name} - ${item.amount.toFixed(2)}
+                            <strong>{item.product_name}</strong>
+                            {item.item && (
+                              <span style={{ color: '#2ecc71', fontSize: '0.9rem' }}>
+                                {' '}→ {item.item.name}
+                              </span>
+                            )}
+                            {' '}- ${item.amount.toFixed(2)}
                             {item.subcategory && (
                               <span style={{ color: '#7f8c8d', fontSize: '0.85rem' }}>
                                 {' '}({item.subcategory.name})
@@ -316,14 +342,15 @@ function Bills() {
               <h3 style={{ marginBottom: '1rem' }}>Items</h3>
               {editableItems.map((item, index) => {
                 const availableSubcategories = getSubcategoriesForCategory(item.category_id);
+                const availableItems = getItemsForSubcategory(item.subcategory_id);
                 return (
                   <div key={index} className="bill-item">
-                    <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '2fr 1fr 1.5fr 1.5fr auto', gap: '0.5rem', alignItems: 'center' }}>
+                    <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '2fr 1fr 1.5fr 1.5fr 1.5fr auto', gap: '0.5rem', alignItems: 'center' }}>
                       <input
                         type="text"
                         value={item.product_name}
                         onChange={(e) => updateItem(index, 'product_name', e.target.value)}
-                        placeholder="Product name"
+                        placeholder="Product name (as on receipt)"
                       />
                       <input
                         type="number"
@@ -352,6 +379,18 @@ function Bills() {
                         {availableSubcategories.map(sub => (
                           <option key={sub.id} value={sub.id}>
                             {sub.name}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        value={item.item_id || ''}
+                        onChange={(e) => updateItem(index, 'item_id', e.target.value ? parseInt(e.target.value) : null)}
+                        disabled={!item.subcategory_id}
+                      >
+                        <option value="">Select Item (optional)</option>
+                        {availableItems.map(itm => (
+                          <option key={itm.id} value={itm.id}>
+                            {itm.name}
                           </option>
                         ))}
                       </select>
