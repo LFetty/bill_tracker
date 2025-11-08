@@ -110,3 +110,28 @@ class OCRService:
                     return subcategory_id
 
         return None
+
+    @staticmethod
+    def auto_categorize_item(product_name: str, item_keywords_map: dict) -> Optional[int]:
+        """
+        Auto-categorize a product to an item based on item keywords.
+        item_keywords_map: {item_id: [list of keywords]}
+        Returns: item_id or None
+        """
+        product_lower = product_name.lower()
+
+        # Check each item's keywords for exact or partial match
+        best_match = None
+        best_match_length = 0
+
+        for item_id, keywords in item_keywords_map.items():
+            for keyword in keywords:
+                keyword_lower = keyword.lower()
+                # Check for exact match or if keyword is in product name
+                if keyword_lower == product_lower or keyword_lower in product_lower:
+                    # Prefer longer keyword matches (more specific)
+                    if len(keyword_lower) > best_match_length:
+                        best_match = item_id
+                        best_match_length = len(keyword_lower)
+
+        return best_match

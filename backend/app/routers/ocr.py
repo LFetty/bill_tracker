@@ -42,7 +42,15 @@ async def scan_bill(
         # Parse bill items
         parsed_items, total, store_name = ocr_service.parse_bill_items(raw_text)
 
-        # Build keywords map for auto-categorization
+        # Build keywords maps for auto-categorization
+        # First try to match items (more specific), then fall back to subcategories
+        items = db.query(models.Item).all()
+        item_keywords_map = {}
+        item_to_subcat_map = {}
+        for item in items:
+            item_keywords_map[item.id] = [kw.keyword for kw in item.keywords]
+            item_to_subcat_map[item.id] = item.subcategory_id
+
         subcategories = db.query(models.Subcategory).all()
         keywords_map = {}
         for subcat in subcategories:
@@ -51,11 +59,22 @@ async def scan_bill(
         # Auto-categorize items
         ocr_items = []
         for product_name, amount in parsed_items:
-            suggested_subcat_id = ocr_service.auto_categorize(product_name, keywords_map)
+            # Try item matching first (more specific)
+            suggested_item_id = ocr_service.auto_categorize_item(product_name, item_keywords_map)
+            suggested_subcat_id = None
+
+            if suggested_item_id:
+                # If we found an item match, get its subcategory
+                suggested_subcat_id = item_to_subcat_map.get(suggested_item_id)
+            else:
+                # Fall back to subcategory matching
+                suggested_subcat_id = ocr_service.auto_categorize(product_name, keywords_map)
+
             ocr_items.append(schemas.OCRItem(
                 product_name=product_name,
                 amount=amount,
-                suggested_subcategory_id=suggested_subcat_id
+                suggested_subcategory_id=suggested_subcat_id,
+                suggested_item_id=suggested_item_id
             ))
 
         return schemas.OCRResponse(

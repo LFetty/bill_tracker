@@ -20,6 +20,13 @@ export const createSubcategory = (data) => api.post('/categories/subcategories',
 export const updateSubcategory = (id, data) => api.put(`/categories/subcategories/${id}`, data);
 export const deleteSubcategory = (id) => api.delete(`/categories/subcategories/${id}`);
 
+// Items
+export const getItems = (params) => api.get('/items', { params });
+export const getItem = (id) => api.get(`/items/${id}`);
+export const createItem = (data) => api.post('/items', data);
+export const updateItem = (id, data) => api.put(`/items/${id}`, data);
+export const deleteItem = (id) => api.delete(`/items/${id}`);
+
 // Bills
 export const getBills = (params) => api.get('/bills', { params });
 export const getBill = (id) => api.get(`/bills/${id}`);

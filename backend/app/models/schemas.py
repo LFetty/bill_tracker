@@ -41,6 +41,7 @@ class Subcategory(SubcategoryBase):
     category_id: int
     created_at: datetime
     keywords: List[CategoryKeyword] = []
+    items: List['Item'] = []
 
     class Config:
         from_attributes = True
@@ -69,11 +70,55 @@ class Category(CategoryBase):
         from_attributes = True
 
 
+# Item Schemas
+class ItemKeywordBase(BaseModel):
+    keyword: str
+
+
+class ItemKeywordCreate(ItemKeywordBase):
+    pass
+
+
+class ItemKeyword(ItemKeywordBase):
+    id: int
+    item_id: int
+
+    class Config:
+        from_attributes = True
+
+
+class ItemBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+
+class ItemCreate(ItemBase):
+    subcategory_id: int
+    keywords: Optional[List[str]] = []
+
+
+class ItemUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    keywords: Optional[List[str]] = None
+
+
+class Item(ItemBase):
+    id: int
+    subcategory_id: int
+    created_at: datetime
+    keywords: List[ItemKeyword] = []
+
+    class Config:
+        from_attributes = True
+
+
 # Bill Item Schemas
 class BillItemBase(BaseModel):
     product_name: str
     amount: float
     subcategory_id: Optional[int] = None
+    item_id: Optional[int] = None
 
 
 class BillItemCreate(BillItemBase):
@@ -84,6 +129,7 @@ class BillItemUpdate(BaseModel):
     product_name: Optional[str] = None
     amount: Optional[float] = None
     subcategory_id: Optional[int] = None
+    item_id: Optional[int] = None
 
 
 class BillItem(BillItemBase):
@@ -91,6 +137,7 @@ class BillItem(BillItemBase):
     bill_id: int
     created_at: datetime
     subcategory: Optional[Subcategory] = None
+    item: Optional[Item] = None
 
     class Config:
         from_attributes = True
@@ -131,6 +178,7 @@ class OCRItem(BaseModel):
     product_name: str
     amount: float
     suggested_subcategory_id: Optional[int] = None
+    suggested_item_id: Optional[int] = None
 
 
 class OCRResponse(BaseModel):

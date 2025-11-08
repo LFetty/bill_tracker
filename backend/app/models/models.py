@@ -26,6 +26,7 @@ class Subcategory(Base):
 
     category = relationship("Category", back_populates="subcategories")
     bill_items = relationship("BillItem", back_populates="subcategory")
+    items = relationship("Item", back_populates="subcategory", cascade="all, delete-orphan")
     keywords = relationship("CategoryKeyword", back_populates="subcategory", cascade="all, delete-orphan")
 
 
@@ -38,6 +39,31 @@ class CategoryKeyword(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     subcategory = relationship("Subcategory", back_populates="keywords")
+
+
+class Item(Base):
+    __tablename__ = "items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    subcategory_id = Column(Integer, ForeignKey("subcategories.id", ondelete="CASCADE"), nullable=False)
+    description = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    subcategory = relationship("Subcategory", back_populates="items")
+    bill_items = relationship("BillItem", back_populates="item")
+    keywords = relationship("ItemKeyword", back_populates="item", cascade="all, delete-orphan")
+
+
+class ItemKeyword(Base):
+    __tablename__ = "item_keywords"
+
+    id = Column(Integer, primary_key=True, index=True)
+    item_id = Column(Integer, ForeignKey("items.id", ondelete="CASCADE"), nullable=False)
+    keyword = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    item = relationship("Item", back_populates="keywords")
 
 
 class Bill(Base):
@@ -62,7 +88,9 @@ class BillItem(Base):
     product_name = Column(String, nullable=False)
     amount = Column(Float, nullable=False)
     subcategory_id = Column(Integer, ForeignKey("subcategories.id", ondelete="SET NULL"), nullable=True)
+    item_id = Column(Integer, ForeignKey("items.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     bill = relationship("Bill", back_populates="items")
     subcategory = relationship("Subcategory", back_populates="bill_items")
+    item = relationship("Item", back_populates="bill_items")

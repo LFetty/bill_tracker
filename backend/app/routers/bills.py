@@ -68,19 +68,31 @@ def create_bill(bill: schemas.BillCreate, db: Session = Depends(get_db)):
         db.add(db_item)
         total += item.amount
 
-        # Auto-learn keywords: Add product name as keyword if item has a subcategory
-        if item.subcategory_id:
-            # Normalize product name to lowercase for keyword matching
-            product_keyword = item.product_name.lower().strip()
+        # Auto-learn keywords
+        product_keyword = item.product_name.lower().strip()
 
-            # Check if this keyword already exists for this subcategory
+        # If item has an item_id, add product name as keyword to that item
+        if item.item_id and product_keyword:
+            existing_item_keyword = db.query(models.ItemKeyword).filter(
+                models.ItemKeyword.item_id == item.item_id,
+                models.ItemKeyword.keyword == product_keyword
+            ).first()
+
+            if not existing_item_keyword:
+                new_item_keyword = models.ItemKeyword(
+                    item_id=item.item_id,
+                    keyword=product_keyword
+                )
+                db.add(new_item_keyword)
+
+        # Also add to subcategory keywords for backward compatibility
+        elif item.subcategory_id and product_keyword:
             existing_keyword = db.query(models.CategoryKeyword).filter(
                 models.CategoryKeyword.subcategory_id == item.subcategory_id,
                 models.CategoryKeyword.keyword == product_keyword
             ).first()
 
-            # If keyword doesn't exist, add it
-            if not existing_keyword and product_keyword:
+            if not existing_keyword:
                 new_keyword = models.CategoryKeyword(
                     subcategory_id=item.subcategory_id,
                     keyword=product_keyword

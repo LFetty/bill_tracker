@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine, Base
-from .routers import categories, bills, ocr
+from .routers import categories, bills, ocr, items
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -25,6 +25,7 @@ app.add_middleware(
 app.include_router(categories.router)
 app.include_router(bills.router)
 app.include_router(ocr.router)
+app.include_router(items.router)
 
 
 @app.get("/")
