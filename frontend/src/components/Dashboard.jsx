@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { getSpendingSummary, getBills } from '../services/api';
+import { getSpendingSummary, getBills, getStoreSummary } from '../services/api';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 
 const COLORS = ['#3498db', '#2ecc71', '#e74c3c', '#f39c12', '#9b59b6', '#1abc9c', '#34495e', '#e67e22'];
 
 function Dashboard() {
   const [summary, setSummary] = useState(null);
+  const [storeSummary, setStoreSummary] = useState(null);
   const [recentBills, setRecentBills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -17,12 +18,14 @@ function Dashboard() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [summaryRes, billsRes] = await Promise.all([
+      const [summaryRes, billsRes, storeRes] = await Promise.all([
         getSpendingSummary(),
-        getBills({ limit: 5 })
+        getBills({ limit: 5 }),
+        getStoreSummary()
       ]);
       setSummary(summaryRes.data);
       setRecentBills(billsRes.data);
+      setStoreSummary(storeRes.data);
       setError(null);
     } catch (err) {
       setError('Failed to load dashboard data');
@@ -133,6 +136,25 @@ function Dashboard() {
         </div>
       )}
 
+      {storeSummary && Object.keys(storeSummary.stores || {}).length > 0 && (
+        <div className="card">
+          <h2>Spending by Store</h2>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={Object.entries(storeSummary.stores).map(([name, data]) => ({
+              name,
+              total: parseFloat(data.total.toFixed(2)),
+              bills: data.bill_count
+            })).sort((a, b) => b.total - a.total).slice(0, 10)}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
+              <YAxis />
+              <Tooltip formatter={(value) => `$${value}`} />
+              <Bar dataKey="total" fill="#2ecc71" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
       <div className="card">
         <h2>Recent Bills</h2>
         {recentBills.length === 0 ? (
@@ -142,6 +164,7 @@ function Dashboard() {
             <thead>
               <tr>
                 <th>Date</th>
+                <th>Store</th>
                 <th>Items</th>
                 <th>Total</th>
                 <th>Notes</th>
@@ -151,6 +174,7 @@ function Dashboard() {
               {recentBills.map((bill) => (
                 <tr key={bill.id}>
                   <td>{new Date(bill.date).toLocaleDateString()}</td>
+                  <td>{bill.store_name || '-'}</td>
                   <td>{bill.items.length} items</td>
                   <td>${bill.total.toFixed(2)}</td>
                   <td>{bill.notes || '-'}</td>

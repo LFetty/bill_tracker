@@ -16,16 +16,48 @@ class OCRService:
             raise Exception(f"OCR extraction failed: {str(e)}")
 
     @staticmethod
-    def parse_bill_items(text: str) -> Tuple[List[Tuple[str, float]], Optional[float]]:
+    def extract_store_name(text: str) -> Optional[str]:
         """
-        Parse bill text to extract items and prices.
-        Returns: (list of (product_name, amount) tuples, total_amount)
+        Extract store name from receipt text.
+        Store name is typically in the first few lines.
+        """
+        lines = text.strip().split('\n')
+
+        # Look at first 5 lines for store name
+        for i, line in enumerate(lines[:5]):
+            line = line.strip()
+            # Skip empty lines and lines with common receipt headers
+            if not line or len(line) < 3:
+                continue
+            # Skip lines that look like addresses (contain numbers and street indicators)
+            if re.search(r'\d+.*\b(street|st|road|rd|avenue|ave|blvd|lane|ln)\b', line, re.IGNORECASE):
+                continue
+            # Skip lines that look like phone numbers
+            if re.search(r'\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}', line):
+                continue
+            # Skip lines with only numbers or dates
+            if re.match(r'^[\d\s\-/:.]+$', line):
+                continue
+            # If we find a line with mostly letters and some length, use it as store name
+            if len(line) >= 3 and len(line) <= 50 and re.search(r'[a-zA-Z]', line):
+                return line
+
+        return None
+
+    @staticmethod
+    def parse_bill_items(text: str) -> Tuple[List[Tuple[str, float]], Optional[float], Optional[str]]:
+        """
+        Parse bill text to extract items, prices, and store name.
+        Returns: (list of (product_name, amount) tuples, total_amount, store_name)
         """
         items = []
         total = None
 
         # Split text into lines
         lines = text.strip().split('\n')
+
+        # Extract store name
+        store_name = OCRService.extract_store_name(text)
 
         # Pattern to match price (e.g., 12.99, $12.99, 12,99, €12.99)
         price_pattern = r'[\$€£]?\s*(\d+[.,]\d{2})\s*[\$€£]?'
@@ -60,7 +92,7 @@ class OCRService:
                 except ValueError:
                     continue
 
-        return items, total
+        return items, total, store_name
 
     @staticmethod
     def auto_categorize(product_name: str, keywords_map: dict) -> Optional[int]:

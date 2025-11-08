@@ -40,7 +40,7 @@ async def scan_bill(
         raw_text = ocr_service.extract_text_from_image(file_path)
 
         # Parse bill items
-        parsed_items, total = ocr_service.parse_bill_items(raw_text)
+        parsed_items, total, store_name = ocr_service.parse_bill_items(raw_text)
 
         # Build keywords map for auto-categorization
         subcategories = db.query(models.Subcategory).all()
@@ -61,6 +61,7 @@ async def scan_bill(
         return schemas.OCRResponse(
             items=ocr_items,
             total=total,
+            store_name=store_name,
             raw_text=raw_text
         )
 
@@ -98,7 +99,7 @@ async def scan_and_save_bill(
         raw_text = ocr_service.extract_text_from_image(file_path)
 
         # Parse bill items
-        parsed_items, total = ocr_service.parse_bill_items(raw_text)
+        parsed_items, total, store_name = ocr_service.parse_bill_items(raw_text)
 
         # Build keywords map for auto-categorization
         subcategories = db.query(models.Subcategory).all()
@@ -109,6 +110,7 @@ async def scan_and_save_bill(
         # Create bill
         db_bill = models.Bill(
             total=total or 0.0,
+            store_name=store_name,
             image_path=file_path,
             notes=f"Auto-imported via OCR"
         )

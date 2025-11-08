@@ -27,6 +27,7 @@ export const createBill = (data) => api.post('/bills', data);
 export const updateBill = (id, data) => api.put(`/bills/${id}`, data);
 export const deleteBill = (id) => api.delete(`/bills/${id}`);
 export const getSpendingSummary = (params) => api.get('/bills/stats/summary', { params });
+export const getStoreSummary = (params) => api.get('/bills/stats/by-store', { params });
 
 // OCR
 export const scanBill = (file) => {

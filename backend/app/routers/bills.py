@@ -58,7 +58,7 @@ def create_bill(bill: schemas.BillCreate, db: Session = Depends(get_db)):
     db.add(db_bill)
     db.flush()
 
-    # Add bill items
+    # Add bill items and auto-learn keywords
     total = 0.0
     for item in bill.items:
         db_item = models.BillItem(
@@ -67,6 +67,25 @@ def create_bill(bill: schemas.BillCreate, db: Session = Depends(get_db)):
         )
         db.add(db_item)
         total += item.amount
+
+        # Auto-learn keywords: Add product name as keyword if item has a subcategory
+        if item.subcategory_id:
+            # Normalize product name to lowercase for keyword matching
+            product_keyword = item.product_name.lower().strip()
+
+            # Check if this keyword already exists for this subcategory
+            existing_keyword = db.query(models.CategoryKeyword).filter(
+                models.CategoryKeyword.subcategory_id == item.subcategory_id,
+                models.CategoryKeyword.keyword == product_keyword
+            ).first()
+
+            # If keyword doesn't exist, add it
+            if not existing_keyword and product_keyword:
+                new_keyword = models.CategoryKeyword(
+                    subcategory_id=item.subcategory_id,
+                    keyword=product_keyword
+                )
+                db.add(new_keyword)
 
     # Update total if not provided
     if bill.total == 0.0:
@@ -179,4 +198,53 @@ def get_spending_summary(
         "categories": category_totals,
         "uncategorized": uncategorized_total,
         "total": sum(c["total"] for c in category_totals.values()) + uncategorized_total
+    }
+
+
+@router.get("/stats/by-store")
+def get_store_summary(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """Get spending summary by store."""
+    query = db.query(models.Bill)
+
+    # Apply date filters if provided
+    if start_date:
+        try:
+            start = datetime.fromisoformat(start_date)
+            query = query.filter(models.Bill.date >= start)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid start_date format")
+
+    if end_date:
+        try:
+            end = datetime.fromisoformat(end_date)
+            query = query.filter(models.Bill.date <= end)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid end_date format")
+
+    bills = query.all()
+
+    # Group by store
+    store_totals = {}
+    no_store_total = 0.0
+
+    for bill in bills:
+        if bill.store_name:
+            if bill.store_name not in store_totals:
+                store_totals[bill.store_name] = {
+                    "total": 0.0,
+                    "bill_count": 0
+                }
+            store_totals[bill.store_name]["total"] += bill.total
+            store_totals[bill.store_name]["bill_count"] += 1
+        else:
+            no_store_total += bill.total
+
+    return {
+        "stores": store_totals,
+        "no_store": no_store_total,
+        "total": sum(s["total"] for s in store_totals.values()) + no_store_total
     }

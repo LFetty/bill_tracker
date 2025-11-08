@@ -45,6 +45,7 @@ class Bill(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     date = Column(DateTime, default=datetime.utcnow, nullable=False)
+    store_name = Column(String, nullable=True)
     total = Column(Float, default=0.0)
     image_path = Column(String, nullable=True)
     notes = Column(Text, nullable=True)

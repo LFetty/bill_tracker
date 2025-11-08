@@ -13,6 +13,7 @@ function Bills() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [ocrResult, setOcrResult] = useState(null);
   const [editableItems, setEditableItems] = useState([]);
+  const [storeName, setStoreName] = useState('');
 
   useEffect(() => {
     fetchData();
@@ -54,6 +55,7 @@ function Bills() {
       setError(null);
       const response = await scanBill(selectedFile);
       setOcrResult(response.data);
+      setStoreName(response.data.store_name || '');
       setEditableItems(response.data.items.map(item => ({
         product_name: item.product_name,
         amount: item.amount,
@@ -80,12 +82,14 @@ function Bills() {
           subcategory_id: item.subcategory_id
         })),
         total,
+        store_name: storeName || null,
         notes: ocrResult ? 'Imported via OCR' : 'Manually entered'
       });
       setSuccess('Bill saved successfully!');
       setShowManualModal(false);
       setOcrResult(null);
       setEditableItems([]);
+      setStoreName('');
       setSelectedFile(null);
       fetchData();
       setTimeout(() => setSuccess(null), 3000);
@@ -112,6 +116,7 @@ function Bills() {
 
   const openManualBillModal = () => {
     setOcrResult(null);
+    setStoreName('');
     setEditableItems([{ product_name: '', amount: 0, subcategory_id: null, category_id: null }]);
     setShowManualModal(true);
   };
@@ -184,6 +189,7 @@ function Bills() {
             <thead>
               <tr>
                 <th>Date</th>
+                <th>Store</th>
                 <th>Items</th>
                 <th>Total</th>
                 <th>Notes</th>
@@ -194,6 +200,7 @@ function Bills() {
               {bills.map((bill) => (
                 <tr key={bill.id}>
                   <td>{new Date(bill.date).toLocaleDateString()}</td>
+                  <td>{bill.store_name || '-'}</td>
                   <td>
                     {bill.items.length} items
                     <details style={{ marginTop: '0.5rem' }}>
@@ -294,6 +301,16 @@ function Bills() {
                 </pre>
               </div>
             )}
+
+            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+              <label>Store Name</label>
+              <input
+                type="text"
+                value={storeName}
+                onChange={(e) => setStoreName(e.target.value)}
+                placeholder="e.g., Walmart, Target, Whole Foods"
+              />
+            </div>
 
             <div style={{ marginBottom: '1rem' }}>
               <h3 style={{ marginBottom: '1rem' }}>Items</h3>

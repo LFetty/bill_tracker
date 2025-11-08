@@ -99,6 +99,7 @@ class BillItem(BillItemBase):
 # Bill Schemas
 class BillBase(BaseModel):
     date: Optional[datetime] = None
+    store_name: Optional[str] = None
     total: Optional[float] = 0.0
     notes: Optional[str] = None
 
@@ -109,6 +110,7 @@ class BillCreate(BillBase):
 
 class BillUpdate(BaseModel):
     date: Optional[datetime] = None
+    store_name: Optional[str] = None
     total: Optional[float] = None
     notes: Optional[str] = None
     items: Optional[List[BillItemCreate]] = None
@@ -134,4 +136,5 @@ class OCRItem(BaseModel):
 class OCRResponse(BaseModel):
     items: List[OCRItem]
     total: Optional[float] = None
+    store_name: Optional[str] = None
     raw_text: str
